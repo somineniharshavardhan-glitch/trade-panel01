@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMA9 Trade Console</title>
+<style>
+  :root {
+    --bg: #0a0e0c;
+    --panel: #111613;
+    --panel-raised: #161d19;
+    --line: #1f2a24;
+    --text: #e8efe9;
+    --text-dim: #7d9089;
+    --accent: #3ddc84;
+    --accent-dim: #1f7a4a;
+    --buy: #2fb86a;
+    --sell: #e25a4f;
+    --warn: #d4a83d;
+    --mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+    --sans: 'Inter', -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(61,220,132,0.05), transparent 40%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, transparent 1px, transparent 28px);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 18px 14px 60px;
+  }
+
+  .wrap { max-width: 480px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 4px 2px 18px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 18px;
+  }
+
+  .ticker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 2px;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .section {
+    margin-bottom: 22px;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+  }
+  .grid.wide { grid-template-columns: repeat(3, 1fr); }
+  .grid.narrow { grid-template-columns: repeat(5, 1fr); }
+  .grid.narrow.six { grid-template-columns: repeat(3, 1fr); }
+
+  .chip {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 11px 4px;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chip:active { transform: scale(0.96); }
+  .chip:hover { border-color: #2a3a32; color: var(--text); }
+  .chip.selected {
+    background: rgba(61,220,132,0.1);
+    border-color: var(--accent-dim);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px rgba(61,220,132,0.2);
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .field {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 11px;
+  }
+  .field label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .field input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+  }
+  .field input::placeholder { color: #3a473f; }
+
+  .mode-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 18px;
+  }
+  .mode-btn {
+    text-align: center;
+    padding: 9px 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mode-btn.active {
+    background: var(--panel-raised);
+    color: var(--text);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+  }
+
+  .summary {
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    line-height: 1.7;
+    min-height: 20px;
+  }
+  .summary .cmd-preview {
+    color: var(--accent);
+    word-break: break-all;
+  }
+  .summary .empty { color: #3a473f; font-style: italic; }
+
+  .action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .btn-trade {
+    border: none;
+    border-radius: 8px;
+    padding: 16px 0;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    color: #04140a;
+  }
+  .btn-trade:active { transform: scale(0.97); }
+  .btn-trade:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-buy { background: var(--buy); box-shadow: 0 0 24px rgba(47,184,106,0.25); }
+  .btn-sell { background: var(--sell); color: #1a0604; box-shadow: 0 0 24px rgba(226,90,79,0.25); }
+  .btn-place { background: var(--accent); grid-column: 1 / -1; box-shadow: 0 0 24px rgba(61,220,132,0.2); }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--panel-raised);
+    border: 1px solid var(--accent-dim);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    opacity: 0;
+    transition: all 0.25s ease;
+    pointer-events: none;
+    max-width: 90%;
+    text-align: center;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { border-color: #7a2a24; color: var(--sell); }
+
+  .setup-note {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 20px;
+    line-height: 1.6;
+    padding: 0 10px;
+  }
+  .setup-note a { color: var(--accent); text-decoration: none; }
+
+  .custom-name-row { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="ticker"><span class="status-dot"></span>EMA9HARSHA_BOT</div>
+      <h1>Trade Console</h1>
+    </div>
+  </header>
+
+  <div class="mode-toggle">
+    <div class="mode-btn active" data-mode="pending" onclick="setMode('pending')">PENDING ORDER</div>
+    <div class="mode-btn" data-mode="market" onclick="setMode('market')">MARKET ORDER</div>
+  </div>
+
+  <!-- SYMBOL -->
+  <div class="section">
+    <div class="section-label">Symbol</div>
+    <div class="grid" id="symbolGrid">
+      <div class="chip" data-val="EURUSD">EURUSD</div>
+      <div class="chip" data-val="GBPUSD">GBPUSD</div>
+      <div class="chip" data-val="USDJPY">USDJPY</div>
+      <div class="chip" data-val="XAUUSD">XAUUSD</div>
+      <div class="chip" data-val="AUDCAD">AUDCAD</div>
+      <div class="chip" data-val="BTCUSD">BTCUSD</div>
+      <div class="chip" data-val="USDCAD">USDCAD</div>
+      <div class="chip" data-val="XAGUSD">XAGUSD</div>
+    </div>
+    <div class="custom-name-row" style="margin-top:7px;">
+      <div class="field">
+        <label>Custom symbol (overrides above)</label>
+        <input type="text" id="customSymbol" placeholder="e.g. EURGBP" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMEFRAME (pending mode only) -->
+  <div class="section" id="tfSection">
+    <div class="section-label">Timeframe</div>
+    <div class="grid narrow" id="tfGrid">
+      <div class="chip" data-val="M1">M1</div>
+      <div class="chip" data-val="M5">M5</div>
+      <div class="chip" data-val="M15">M15</div>
+      <div class="chip" data-val="M30">M30</div>
+      <div class="chip" data-val="H1">H1</div>
+    </div>
+  </div>
+
+  <!-- EMA (pending mode only) -->
+  <div class="section" id="emaSection">
+    <div class="section-label">EMA Period</div>
+    <div class="grid narrow six" id="emaGrid">
+      <div class="chip" data-val="EMA5">EMA5</div>
+      <div class="chip" data-val="EMA9">EMA9</div>
+      <div class="chip" data-val="EMA15">EMA15</div>
+      <div class="chip" data-val="EMA21">EMA21</div>
+      <div class="chip" data-val="EMA50">EMA50</div>
+      <div class="chip" data-val="EMA200">EMA200</div>
+    </div>
+  </div>
+
+  <!-- TRADE NAME (pending mode only) -->
+  <div class="section" id="nameSection">
+    <div class="section-label">Trade Name (auto)</div>
+    <div class="field">
+      <label>Identifier sent to bot</label>
+      <input type="text" id="tradeName" placeholder="auto-generated" readonly>
+    </div>
+  </div>
+
+  <!-- LOT / SL / TP -->
+  <div class="section">
+    <div class="section-label">Lot / Risk</div>
+    <div class="field-row">
+      <div class="field">
+        <label>Lot size</label>
+        <input type="text" id="lot" placeholder="0.10" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>Stop loss ($)</label>
+        <input type="text" id="sl" placeholder="20" inputmode="decimal">
+      </div>
+    </div>
+    <div class="field-row" style="grid-template-columns: 1fr;">
+      <div class="field">
+        <label>Take profit ($)</label>
+        <input type="text" id="tp" placeholder="20" inputmode="decimal">
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMAND PREVIEW -->
+  <div class="section">
+    <div class="section-label">Command Preview</div>
+    <div class="summary" id="preview"><span class="empty">Select symbol and fill in lot/SL/TP&hellip;</span></div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="section" id="pendingActions">
+    <div class="action-row">
+      <button class="btn-trade btn-place" id="placeBtn" disabled onclick="sendCommand('place')">ADD &amp; PLACE</button>
+    </div>
+  </div>
+
+  <div class="section" id="marketActions" style="display:none;">
+    <div class="action-row">
+      <button class="btn-trade btn-buy" id="buyBtn" disabled onclick="sendCommand('buy')">BUY NOW</button>
+      <button class="btn-trade btn-sell" id="sellBtn" disabled onclick="sendCommand('sell')">SELL NOW</button>
+    </div>
+  </div>
+
+  <div class="setup-note">
+    Sends commands directly to <a href="https://t.me/Ema9harsha_bot" target="_blank">@Ema9harsha_bot</a> via the Telegram Bot API.<br>
+    First-time setup: open the bot once in Telegram and send /start so it can message you back.
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── CONFIG ──
+  const TELEGRAM_TOKEN = "8674862057:AAHtvEHq0QSQP2PW8MOxVyscqr0twRJdA-E";
+  const TELEGRAM_CHAT_ID = "8767194757";
+  const API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+
+  // ── STATE ──
+  let mode = "pending";
+  let selected = { symbol: null, tf: null, ema: null };
+
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+    document.getElementById("tfSection").style.display = m === "pending" ? "block" : "none";
+    document.getElementById("emaSection").style.display = m === "pending" ? "block" : "none";
+    document.getElementById("nameSection").style.display = m === "pending" ? "block" : "none";
+    document.getElementById("pendingActions").style.display = m === "pending" ? "block" : "none";
+    document.getElementById("marketActions").style.display = m === "market" ? "block" : "none";
+    updatePreview();
+  }
+
+  function bindGrid(gridId, key) {
+    const grid = document.getElementById(gridId);
+    grid.querySelectorAll(".chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        grid.querySelectorAll(".chip").forEach(c => c.classList.remove("selected"));
+        chip.classList.add("selected");
+        selected[key] = chip.dataset.val;
+        if (key === "symbol") document.getElementById("customSymbol").value = "";
+        updatePreview();
+      });
+    });
+  }
+  bindGrid("symbolGrid", "symbol");
+  bindGrid("tfGrid", "tf");
+  bindGrid("emaGrid", "ema");
+
+  document.getElementById("customSymbol").addEventListener("input", (e) => {
+    if (e.target.value.trim()) {
+      document.querySelectorAll("#symbolGrid .chip").forEach(c => c.classList.remove("selected"));
+      selected.symbol = e.target.value.trim().toUpperCase();
+    } else {
+      selected.symbol = null;
+    }
+    updatePreview();
+  });
+
+  ["lot", "sl", "tp"].forEach(id => {
+    document.getElementById(id).addEventListener("input", updatePreview);
+  });
+
+  function getSymbol() {
+    const custom = document.getElementById("customSymbol").value.trim();
+    return custom ? custom.toUpperCase() : selected.symbol;
+  }
+
+  function buildTradeName() {
+    const sym = getSymbol();
+    if (!sym) return "";
+    if (mode === "market") return sym;
+    if (!selected.tf) return sym;
+    return `${sym}_${selected.tf}`;
+  }
+
+  function updatePreview() {
+    const sym = getSymbol();
+    const lot = document.getElementById("lot").value.trim();
+    const sl  = document.getElementById("sl").value.trim();
+    const tp  = document.getElementById("tp").value.trim();
+    const preview = document.getElementById("preview");
+
+    if (mode === "pending") {
+      document.getElementById("tradeName").value = buildTradeName();
+    }
+
+    let cmd = null;
+    if (mode === "pending") {
+      if (sym && selected.tf && selected.ema && lot && sl && tp) {
+        cmd = `/trade ${buildTradeName()} ${lot} ${sl} ${tp} ${selected.tf} ${selected.ema}`;
+      }
+    } else {
+      if (sym && lot && sl && tp) {
+        cmd = `/buy ${sym} ${lot} ${sl} ${tp}  (or /sell)`;
+      }
+    }
+
+    preview.innerHTML = cmd
+      ? `<span class="cmd-preview">${cmd}</span>`
+      : `<span class="empty">Select symbol${mode === 'pending' ? ', timeframe, EMA' : ''} and fill in lot/SL/TP&hellip;</span>`;
+
+    const ready = mode === "pending"
+      ? !!(sym && selected.tf && selected.ema && lot && sl && tp)
+      : !!(sym && lot && sl && tp);
+
+    document.getElementById("placeBtn").disabled = !ready;
+    document.getElementById("buyBtn").disabled = !ready;
+    document.getElementById("sellBtn").disabled = !ready;
+  }
+
+  function showToast(text, isError = false) {
+    const t = document.getElementById("toast");
+    t.textContent = text;
+    t.classList.toggle("error", isError);
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3200);
+  }
+
+  async function sendTelegram(text) {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
+    });
+    if (!res.ok) throw new Error("Telegram API error " + res.status);
+    return res.json();
+  }
+
+  async function sendCommand(kind) {
+    const sym = getSymbol();
+    const lot = document.getElementById("lot").value.trim();
+    const sl  = document.getElementById("sl").value.trim();
+    const tp  = document.getElementById("tp").value.trim();
+    let cmd = "";
+
+    if (kind === "place") {
+      cmd = `/trade ${buildTradeName()} ${lot} ${sl} ${tp} ${selected.tf} ${selected.ema}`;
+    } else if (kind === "buy") {
+      cmd = `/buy ${sym} ${lot} ${sl} ${tp}`;
+    } else if (kind === "sell") {
+      cmd = `/sell ${sym} ${lot} ${sl} ${tp}`;
+    }
+
+    try {
+      await sendTelegram(cmd);
+      showToast(`Sent: ${cmd}`);
+    } catch (err) {
+      showToast("Failed to send. Check connection.", true);
+    }
+  }
+
+  updatePreview();
+</script>
+
+</body>
+</html>
